@@ -1,256 +1,79 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
 
-export default function MemoryBread() {
-  const [image, setImage] = useState<string | null>(null);
-  const [bite, setBite] = useState(0);
-  const [tool, setTool] = useState<"pen" | "eraser" | null>(null);
-  const [color, setColor] = useState("#5a3e1b");
-  const [brushSize, setBrushSize] = useState(6);
-  const [shake, setShake] = useState(false);
-  const [crumbs, setCrumbs] = useState<any[]>([]);
-  const [history, setHistory] = useState<string[]>([]);
-  const [inputText, setInputText] = useState("");
-  const [isFinished, setIsFinished] = useState(false);
-  const [isPickerUsed, setIsPickerUsed] = useState(false);
+import React, { useState } from 'react';
+import { Home, BookOpen, User, Settings, Camera, PenTool, Eraser, Trash2 } from 'lucide-react';
 
-  const textCanvasRef = useRef<HTMLCanvasElement>(null);
-  const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  
-  const drawingRef = useRef(false);
-  const pointsRef = useRef<{ x: number; y: number }[]>([]); // 보정을 위한 포인트 배열
-
-  const colorChips = ["#5a3e1b", "#2D2D2D", "#D9534F", "#F0AD4E", "#5CB85C", "#4A90E2"];
-
-  useEffect(() => {
-    [textCanvasRef, drawingCanvasRef].forEach(ref => {
-      const canvas = ref.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
-      canvas.width = 600;
-      canvas.height = 440;
-      ctx.scale(2, 2);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-    });
-  }, []);
-
-  // [실시간 반영] inputText가 바뀔 때마다 텍스트 캔버스 업데이트
-  useEffect(() => {
-    const ctx = textCanvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, 300, 220); // 텍스트 영역 클리어 (스케일 고려)
-    if (!inputText) return;
-
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillStyle = color;
-    ctx.textAlign = "center";
-    
-    const words = inputText.split("");
-    let line = "";
-    let y = 70;
-    for (let n = 0; n < words.length; n++) {
-      let testLine = line + words[n];
-      if (ctx.measureText(testLine).width > 220) {
-        ctx.fillText(line, 150, y);
-        line = words[n]; y += 26;
-      } else { line = testLine; }
-    }
-    ctx.fillText(line, 150, y);
-  }, [inputText, color]);
-
-  const handleReset = () => {
-    setBite(0); setImage(null); setTool(null); setHistory([]); setInputText(""); setIsFinished(false);
-    setIsPickerUsed(false);
-    [textCanvasRef, drawingCanvasRef].forEach(ref => {
-      const ctx = ref.current?.getContext("2d");
-      ctx?.clearRect(0, 0, 600, 440);
-    });
-  };
-
-  const getPos = (e: any) => {
-    const rect = drawingCanvasRef.current!.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { 
-      x: (clientX - rect.left) * (300 / rect.width), 
-      y: (clientY - rect.top) * (220 / rect.height) 
-    };
-  };
-
-  const startDraw = (e: any) => {
-    if (!tool || isFinished) return;
-    drawingRef.current = true;
-    if (drawingCanvasRef.current) setHistory(prev => [...prev, drawingCanvasRef.current!.toDataURL()]);
-    
-    const pos = getPos(e);
-    pointsRef.current = [pos]; // 포인트 초기화
-  };
-
-  const draw = (e: any) => {
-    if (!drawingRef.current || !tool || isFinished) return;
-    const ctx = drawingCanvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    
-    const currentPos = getPos(e);
-    pointsRef.current.push(currentPos);
-    
-    ctx.lineWidth = brushSize;
-    ctx.strokeStyle = color;
-    ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
-
-    // 초부드러운 곡선 보정 핵심 로직: Quadratic Curve Interpolation
-    if (pointsRef.current.length > 2) {
-      const pts = pointsRef.current;
-      const i = pts.length - 2;
-      
-      // 중간 지점을 계산하여 각진 부분을 곡선으로 펴줌
-      const midPoint = {
-        x: (pts[i].x + pts[i + 1].x) / 2,
-        y: (pts[i].y + pts[i + 1].y) / 2
-      };
-
-      ctx.beginPath();
-      // 이전 두 점의 중간 지점에서 시작
-      const prevMidPoint = pts.length > 3 
-        ? { x: (pts[i - 1].x + pts[i].x) / 2, y: (pts[i - 1].y + pts[i].y) / 2 }
-        : pts[i - 1];
-
-      ctx.moveTo(prevMidPoint.x, prevMidPoint.y);
-      // 현재 점을 제어점으로 사용하여 중간 지점까지 곡선을 그림
-      ctx.quadraticCurveTo(pts[i].x, pts[i].y, midPoint.x, midPoint.y);
-      ctx.stroke();
-    }
-  };
-
-  const stopDraw = () => {
-    drawingRef.current = false;
-    pointsRef.current = []; // 포인트 초기화
-  };
-
-  const handleEat = () => {
-    if (bite < 4) {
-      setShake(true); setTimeout(() => setShake(false), 200);
-      setBite(prev => prev + 1);
-      const newCrumbs = Array.from({ length: 12 }).map((_, i) => ({ id: Date.now() + i, x: Math.random() * 260 + 20, size: Math.random() * 5 + 2 }));
-      setCrumbs(prev => [...prev, ...newCrumbs]);
-      setTimeout(() => setCrumbs(prev => prev.slice(12)), 700);
-    }
-  };
-
-  const biteClips = ["none", "polygon(0% 100%, 100% 100%, 100% 30%, 85% 42%, 70% 35%, 55% 45%, 40% 35%, 0% 15%)", "polygon(0% 100%, 100% 100%, 100% 55%, 82% 65%, 68% 52%, 48% 68%, 28% 48%, 0% 45%)", "polygon(0% 100%, 100% 100%, 100% 85%, 75% 95%, 50% 80%, 25% 95%, 0% 80%)", "circle(0% at 50% 50%)"];
+export default function AmgiBreadApp() {
+  const [tab, setTab] = useState('home'); // 'home', 'notes', 'profile' 중 하나
 
   return (
-    <div className="min-h-screen bg-[#FFF9E6] flex flex-col items-center justify-center p-4 font-sans select-none overflow-hidden relative">
-      <h1 className={`text-2xl font-bold text-[#5a3e1b] transition-all duration-500 ${isFinished ? (bite === 4 ? "mb-8" : "fixed top-8") : "mb-6"}`}>암기빵 🍞</h1>
-
-      <div className={`relative w-[300px] h-[220px] transition-all duration-500 flex items-center justify-center ${isFinished && bite < 4 ? "scale-[1.4] mb-24" : "mb-0"} ${shake ? "animate-shake" : ""}`}>
-        {bite === 4 && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-50 animate-in fade-in zoom-in">
-            <button onClick={handleReset} className="py-4 px-20 bg-[#D97706] text-white rounded-2xl font-bold text-lg shadow-[0_6px_0_#92400E] active:translate-y-1 active:shadow-none">빵 다시 굽기 🍞</button>
+    <div className="flex justify-center bg-[#FFF9E6] min-h-screen">
+      {/* 스마트폰 화면 크기로 고정 */}
+      <div className="relative w-full max-w-[430px] bg-white shadow-2xl min-h-screen flex flex-col overflow-hidden">
+        
+        {/* [1] 상단 바 */}
+        <header className="px-6 py-4 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🍞</span>
+            <h1 className="text-xl font-black text-[#5a3e1b]">암기빵</h1>
           </div>
-        )}
+          <Settings className="text-gray-400 cursor-pointer hover:rotate-90 transition-transform" />
+        </header>
 
-        <div 
-          className={`w-full h-full bg-[#FFD966] border-[6px] border-[#D97706] shadow-xl overflow-hidden relative transition-opacity ${bite === 4 ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-          style={{ borderRadius: "55px 55px 20px 20px", clipPath: biteClips[bite], transition: "clip-path 0.3s ease-out, opacity 0.3s" }}
-        >
-          <div className="absolute top-[-12px] left-1/2 -translate-x-1/2 w-[85%] h-[45px] bg-[#FFD966] rounded-[50%] border-t-[6px] border-[#D97706]" />
-          <div className="relative w-full h-full pointer-events-none">
-            {image && <img src={image} className="absolute inset-0 w-full h-full object-contain mix-blend-multiply opacity-95" />}
-            <canvas ref={textCanvasRef} style={{ width: '300px', height: '220px' }} className="absolute inset-0 z-10" />
-          </div>
-          <canvas ref={drawingCanvasRef} style={{ width: '300px', height: '220px' }} className={`absolute inset-0 touch-none z-20 ${isFinished ? "cursor-default" : (!tool ? "cursor-default" : "cursor-crosshair")}`} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw} onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw} />
-        </div>
-        {crumbs.map((c) => <div key={c.id} className="absolute bg-[#D97706] rounded-full animate-fall" style={{ width: c.size, height: c.size, left: c.x, top: "50%" }} />)}
-      </div>
-
-      {!isFinished && (
-        <div className="mt-8 flex flex-col gap-3 w-full max-w-[320px] animate-in slide-in-from-bottom-4 duration-500">
-          <div className="flex gap-2 bg-white p-2 rounded-xl border border-orange-200">
-            <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="암기 내용 입력..." className="flex-1 px-2 py-1 outline-none text-sm" />
-          </div>
-
-          <div className="flex gap-2 bg-[#FEF3C7] p-1 rounded-xl shadow-inner">
-            <button onClick={() => setTool(tool === "pen" ? null : "pen")} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${tool === "pen" ? "bg-[#F59E0B] text-white shadow-md" : "text-[#B45309]"}`}>펜</button>
-            <button onClick={() => setTool(tool === "eraser" ? null : "eraser")} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all ${tool === "eraser" ? "bg-[#F59E0B] text-white shadow-md" : "text-[#B45309]"}`}>지우개</button>
-            <button onClick={() => {
-               if (history.length === 0) return;
-               const img = new Image(); img.src = history[history.length - 1];
-               img.onload = () => {
-                 const ctx = drawingCanvasRef.current?.getContext("2d");
-                 if (ctx) { ctx.clearRect(0,0,600,440); ctx.drawImage(img,0,0,300,220); setHistory(prev => prev.slice(0,-1)); }
-               }
-            }} className="flex-1 py-2 rounded-lg font-bold bg-white text-[#B45309] border border-[#FDE68A] text-xs">↩ 취소</button>
-          </div>
-
-          <div className="bg-white p-3 rounded-xl shadow-sm border border-[#FEF3C7] flex flex-col gap-3">
-            <input type="range" min="2" max="25" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-full h-1.5 bg-[#FDE68A] rounded-lg appearance-none cursor-pointer accent-[#F59E0B]" />
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-end gap-2 h-8">
-                {colorChips.map(v => (
-                  <button 
-                    key={v} 
-                    onClick={() => { setColor(v); setTool("pen"); }} 
-                    className={`w-6 h-6 rounded-full transition-all duration-300 shadow-sm ${color === v && tool === "pen" ? 'w-8 h-8 -translate-y-1.5 shadow-md ring-2 ring-orange-200 opacity-100' : 'opacity-70 hover:opacity-100 hover:-translate-y-0.5'}`} 
-                    style={{ background: v }} 
-                  />
-                ))}
+        {/* [2] 메인 콘텐츠 공간 */}
+        <main className="flex-1 overflow-y-auto p-6 pb-24">
+          {tab === 'home' ? (
+            <div className="flex flex-col items-center gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">무엇을 암기할까요?</h2>
+                <p className="text-gray-400 text-sm italic">책이나 노트를 찍어보세요!</p>
               </div>
               
-              <div 
-                className={`relative w-8 h-8 rounded-full overflow-hidden border border-gray-100 shadow-sm transition-all duration-300 ${tool === 'pen' ? 'scale-100' : 'opacity-40'} ${isPickerUsed && tool === 'pen' ? 'w-10 h-10 -translate-y-1.5 ring-2 ring-orange-200' : ''}`} 
-                style={{ 
-                  background: isPickerUsed ? color : "conic-gradient(#F0A8A8 0% 16%, #F0F0A8 16% 32%, #A8F0A8 32% 48%, #A8F0F0 48% 64%, #A8A8F0 64% 80%, #F0A8F0 80% 100%)" 
-                }}
-              >
-                <input type="color" value={color} onChange={(e) => { setColor(e.target.value); setTool("pen"); setIsPickerUsed(true); }} className="absolute inset-0 opacity-0 cursor-pointer scale-150" />
+              {/* 빵이 들어갈 자리 (임시 박스) */}
+              <div className="w-full aspect-[4/5] bg-[#FFF9E6] border-4 border-dashed border-orange-200 rounded-[40px] flex items-center justify-center relative group cursor-pointer hover:bg-orange-100 transition-all shadow-inner">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Camera className="text-orange-400" size={36} />
+                  </div>
+                  <p className="font-extrabold text-orange-400">사진 찍기 / 업로드</p>
+                </div>
+              </div>
+
+              {/* 하단 버튼들 */}
+              <div className="grid grid-cols-2 gap-4 w-full">
+                <button className="flex items-center justify-center gap-2 p-5 bg-orange-50 rounded-3xl font-bold text-orange-700 hover:bg-orange-100 transition-all border-b-4 border-orange-200">
+                  <PenTool size={20} /> 직접 쓰기
+                </button>
+                <button className="flex items-center justify-center gap-2 p-5 bg-[#FFB800] rounded-3xl font-bold text-white shadow-lg shadow-orange-200 hover:bg-orange-500 transition-all border-b-4 border-orange-600">
+                  🍴 먹기
+                </button>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-300">
+               <p className="text-lg font-bold italic">준비 중인 페이지예요!</p>
+            </div>
+          )}
+        </main>
 
-          <div className="flex gap-2">
-            <button onClick={() => fileRef.current?.click()} className="flex-1 py-3 bg-[#F59E0B] text-white rounded-xl font-bold shadow-[0_4px_0_#B45309] active:translate-y-1 active:shadow-none text-sm">스캔</button>
-            <input ref={fileRef} type="file" hidden accept="image/*" onChange={(e) => {
-               const file = e.target.files?.[0]; if (!file) return;
-               const img = new Image(); const reader = new FileReader();
-               reader.onload = (ev) => { img.src = ev.target?.result as string; };
-               img.onload = () => {
-                 const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
-                 if (!ctx) return; canvas.width = 1000; canvas.height = 800;
-                 ctx.filter = "contrast(2.8) brightness(1.05) grayscale(1)";
-                 ctx.drawImage(img, 0, 0, 1000, 800);
-                 const data = ctx.getImageData(0, 0, 1000, 800);
-                 for (let i = 0; i < data.data.length; i += 4) {
-                   const avg = (data.data[i] + data.data[i+1] + data.data[i+2]) / 3;
-                   if (avg > 138) data.data[i+3] = 0;
-                   else { data.data[i]=74; data.data[i+1]=42; data.data[i+2]=15; data.data[i+3]=255; }
-                 }
-                 ctx.putImageData(data, 0, 0); setImage(canvas.toDataURL());
-               };
-               reader.readAsDataURL(file);
-            }} />
-            <button onClick={handleReset} className="flex-1 py-3 bg-white border-2 border-[#D97706] text-[#D97706] rounded-xl font-bold text-xs">초기화</button>
-          </div>
-          <button onClick={() => setIsFinished(true)} className="w-full py-4 bg-[#D97706] text-white rounded-xl font-bold text-lg shadow-[0_5px_0_#92400E] active:translate-y-1 active:shadow-none mt-2">완성 ✨</button>
-        </div>
-      )}
+        {/* [3] 하단 탭 메뉴 (가장 중요!) */}
+        <nav className="absolute bottom-0 w-full h-20 bg-white border-t border-gray-100 flex justify-around items-center px-4 rounded-t-[32px] shadow-[0_-10px_30px_rgba(0,0,0,0.05)] z-20">
+          <TabButton icon={<Home />} label="홈" active={tab === 'home'} onClick={() => setTab('home')} />
+          <TabButton icon={<BookOpen />} label="노트" active={tab === 'notes'} onClick={() => setTab('notes')} />
+          <TabButton icon={<User />} label="내정보" active={tab === 'profile'} onClick={() => setTab('profile')} />
+        </nav>
 
-      {isFinished && bite < 4 && (
-        <div className="mt-8 w-full max-w-[320px] animate-in slide-in-from-bottom-4">
-          <button onClick={handleEat} className="w-full py-5 bg-[#D97706] text-white rounded-2xl font-bold text-xl shadow-[0_6px_0_#92400E] active:translate-y-1 active:shadow-none">한 입 먹기 🍴</button>
-          <button onClick={() => setIsFinished(false)} className="w-full mt-4 py-2 text-[#D97706] font-bold text-sm underline opacity-70 text-center hover:opacity-100 transition-opacity">수정하러 가기</button>
-        </div>
-      )}
-
-      <style jsx>{`
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
-        .animate-shake { animation: shake 0.2s ease-in-out; }
-        @keyframes fall { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(120px) scale(0.5); opacity: 0; } }
-        .animate-fall { animation: fall 0.7s forwards ease-in; }
-      `}</style>
+      </div>
     </div>
+  );
+}
+
+// 탭 버튼 컴포넌트 (반복되는 코드를 줄여줘요)
+function TabButton({ icon, label, active, onClick }: any) {
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-all duration-300 ${active ? 'text-orange-500 scale-110' : 'text-gray-300'}`}>
+      {React.cloneElement(icon, { size: 24, strokeWidth: active ? 3 : 2 })}
+      <span className="text-[10px] font-black">{label}</span>
+    </button>
   );
 }
