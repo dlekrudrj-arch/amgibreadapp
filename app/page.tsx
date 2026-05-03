@@ -25,7 +25,7 @@ export default function AmgiBreadApp() {
       if (!key) throw new Error("Vercel 설정에 API 키가 입력되지 않았습니다.");
       
       const genAI = new GoogleGenerativeAI(key);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
       const prompt = "이 사진 내용을 요약하고 퀴즈 2개 만들어줘.";
       const result = await model.generateContent([
