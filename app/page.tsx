@@ -4,6 +4,7 @@ import React, { useState, useRef } from "react";
 import { Home, BookOpen, User, Settings, Camera, Loader2, AlertCircle } from "lucide-react";
 // 정석: 구글 최신 SDK에서 GoogleGenAI를 가져옵니다.
 import { GoogleGenAI } from "@google/genai";
+const ai = new GoogleGenAI({});
 
 export default function Page() {
   const [tab, setTab] = useState("home");
@@ -27,7 +28,7 @@ export default function Page() {
 
       // 정석: 최신 generateContent 호출 방식
       const response = await client.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "gemini-3-flash-preview",
         contents: [
           {
             role: "user",
