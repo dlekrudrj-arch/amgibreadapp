@@ -10,9 +10,10 @@ export default function MemoryBreadApp() {
   const [mode, setMode] = useState<"none" | "typing" | "drawing">("none");
   const [tool, setTool] = useState<"pen" | "eraser" | null>("pen");
   
-  // 색상 상태 분리
+  // 색상 및 굵기 상태
   const [textColor, setTextColor] = useState("#5a3e1b");
   const [drawingColor, setDrawingColor] = useState("#5a3e1b");
+  const [brushSize, setBrushSize] = useState(6);
   
   const [shake, setShake] = useState(false);
   const [crumbs, setCrumbs] = useState<any[]>([]);
@@ -44,7 +45,6 @@ export default function MemoryBreadApp() {
     });
   }, []);
 
-  // 텍스트 그리기 (textColor에만 반응)
   useEffect(() => {
     const ctx = textCanvasRef.current?.getContext("2d");
     if (!ctx) return;
@@ -99,7 +99,7 @@ export default function MemoryBreadApp() {
     if (!ctx) return;
     const currentPos = getPos(e);
     pointsRef.current.push(currentPos);
-    ctx.lineWidth = tool === "eraser" ? 20 : 6;
+    ctx.lineWidth = tool === "eraser" ? 25 : brushSize;
     ctx.strokeStyle = drawingColor;
     ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
     
@@ -130,11 +130,12 @@ export default function MemoryBreadApp() {
     }
   };
 
+  // 실감나는 베어물기 질감 (Clip-path)
   const realisticBiteClips = [
     "none",
-    "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 20%, 5% 18%, 10% 25%, 15% 18%, 25% 28%, 35% 20%, 50% 35%, 65% 22%, 80% 38%, 90% 28%, 100% 40%, 100% 100%, 0% 100%)",
-    "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 45%, 15% 52%, 30% 45%, 45% 60%, 60% 48%, 80% 65%, 100% 55%, 100% 100%, 0% 100%)",
-    "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 80%, 20% 75%, 40% 90%, 65% 78%, 85% 95%, 100% 85%, 100% 100%, 0% 100%)",
+    "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 25%, 5% 20%, 12% 28%, 20% 18%, 30% 30%, 45% 22%, 55% 35%, 68% 25%, 80% 40%, 92% 28%, 100% 35%, 100% 100%, 0% 100%)",
+    "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 50%, 10% 55%, 22% 48%, 35% 62%, 50% 50%, 65% 68%, 82% 55%, 100% 65%, 100% 100%, 0% 100%)",
+    "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 82%, 18% 75%, 38% 92%, 60% 80%, 82% 96%, 100% 88%, 100% 100%, 0% 100%)",
     "circle(0% at 50% 50%)"
   ];
 
@@ -148,19 +149,19 @@ export default function MemoryBreadApp() {
         </header>
 
         <main className="flex-1 px-4 flex flex-col items-center pt-2 relative">
-          {/* 빵 사이즈 극대화 */}
+          {/* 빵 영역 사이즈 최대화 */}
           <div className={`relative w-full aspect-[4/5] transition-all duration-500 ${shake ? "animate-shake" : ""}`}>
             
-            {/* 다시 굽기 버튼: 최하단 배치 */}
+            {/* 다시 굽기 버튼: 최하단(네비바 바로 위)으로 이동 */}
             {bite === 4 && (
-              <div className="absolute inset-0 flex items-end justify-center z-50 animate-in fade-in zoom-in pb-20">
-                <button onClick={() => {setBite(0); setImage(null); setIsFinished(false); setInputText(""); setHistory([]);}} className="py-5 px-12 bg-[#FF8A3D] text-white rounded-[28px] font-black text-xl shadow-[0_8px_0_#D97706] active:translate-y-1 active:shadow-none transition-all">
+              <div className="absolute inset-0 flex items-end justify-center z-50 animate-in fade-in zoom-in pb-16">
+                <button onClick={() => {setBite(0); setImage(null); setIsFinished(false); setInputText(""); setHistory([]);}} className="py-5 px-14 bg-[#FF8A3D] text-white rounded-[32px] font-black text-xl shadow-[0_8px_0_#D97706] active:translate-y-1 active:shadow-none transition-all">
                   빵 다시 굽기 🍞
                 </button>
               </div>
             )}
 
-            {/* 빵 & 내용물 전체 클립패스 적용 (먹을 때 함께 사라짐) */}
+            {/* 빵 이미지가 깎이는 시각적 핵심 레이어 */}
             <div 
               className={`w-full h-full relative transition-all duration-500 ${bite === 4 ? "opacity-0 scale-95" : "opacity-100"}`}
               style={{ clipPath: realisticBiteClips[bite] }}
@@ -169,7 +170,7 @@ export default function MemoryBreadApp() {
               <div className="absolute inset-0 overflow-hidden" style={{ padding: '15% 12% 10% 12%' }}>
                 <div className="relative w-full h-full">
                   {image && <img src={image} className="absolute inset-0 w-full h-full object-contain mix-blend-multiply opacity-80" />}
-                  <canvas ref={textCanvasRef} className="absolute inset-0 w-full h-full z-10" />
+                  <canvas ref={textCanvasRef} className="absolute inset-0 w-full h-full z-10 pointer-events-none" />
                   <canvas 
                     ref={drawingCanvasRef} 
                     className={`absolute inset-0 w-full h-full touch-none z-20 ${mode === 'drawing' ? 'cursor-crosshair' : ''}`} 
@@ -184,7 +185,7 @@ export default function MemoryBreadApp() {
 
           {!isFinished && (
             <div className="w-full mt-6 flex flex-col gap-3 z-40">
-              {/* 직접 쓰기 모드: 컬러 선택 도구 포함 */}
+              {/* 직접 쓰기 모드 */}
               {mode === "typing" && (
                 <div className="bg-white p-4 rounded-[28px] shadow-xl border border-orange-50 flex flex-col gap-3 animate-in slide-in-from-bottom-4">
                   <textarea value={inputText} onChange={(e)=>setInputText(e.target.value)} placeholder="내용을 입력하세요..." className="w-full h-24 p-2 bg-transparent outline-none font-medium resize-none text-sm" autoFocus />
@@ -197,19 +198,27 @@ export default function MemoryBreadApp() {
                         <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e)=>{setTextColor(e.target.value); setIsTextPickerUsed(true);}} />
                       </div>
                     </div>
-                    <button onClick={()=>setMode("none")} className="p-2 bg-orange-500 text-white rounded-xl"><Check size={18}/></button>
+                    <button onClick={()=>setMode("none")} className="p-2 bg-orange-500 text-white rounded-xl shadow-md"><Check size={18}/></button>
                   </div>
                 </div>
               )}
 
+              {/* 그리기 모드 (굵기조절 추가) */}
               {mode === "drawing" && (
                 <div className="bg-white p-4 rounded-[28px] shadow-xl border border-orange-50 flex flex-col gap-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setTool("pen")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "pen" ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-400"}`}>펜</button>
-                    <button onClick={() => setTool("eraser")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "eraser" ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-400"}`}>지우개</button>
-                    <button onClick={handleUndo} className="p-2 bg-gray-50 rounded-xl text-gray-400"><RotateCcw size={18}/></button>
+                    <button onClick={() => setTool("pen")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "pen" ? "bg-orange-500 text-white shadow-inner" : "bg-gray-100 text-gray-400"}`}>펜</button>
+                    <button onClick={() => setTool("eraser")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "eraser" ? "bg-orange-500 text-white shadow-inner" : "bg-gray-100 text-gray-400"}`}>지우개</button>
+                    <button onClick={handleUndo} className="p-2 bg-gray-50 rounded-xl text-gray-400 active:scale-95"><RotateCcw size={18}/></button>
                   </div>
-                  <div className="flex justify-between items-center">
+                  
+                  {/* 굵기 조절 슬라이더 */}
+                  <div className="flex items-center gap-3 px-1">
+                    <span className="text-[10px] font-bold text-gray-400">굵기</span>
+                    <input type="range" min="1" max="20" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} className="flex-1 accent-orange-500 h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer" />
+                  </div>
+
+                  <div className="flex justify-between items-center pt-1">
                     <div className="flex gap-1.5">
                       {colorChips.map(c => (
                         <button key={c} onClick={() => {setDrawingColor(c); setIsDrawingPickerUsed(false);}} className={`w-6 h-6 rounded-full ${drawingColor === c && !isDrawingPickerUsed ? 'ring-2 ring-orange-300 scale-110' : ''}`} style={{background: c}} />
@@ -218,14 +227,14 @@ export default function MemoryBreadApp() {
                         <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e)=>{setDrawingColor(e.target.value); setIsDrawingPickerUsed(true);}} />
                       </div>
                     </div>
-                    <button onClick={() => setMode("none")} className="px-3 py-1.5 bg-orange-100 text-orange-600 rounded-lg font-bold text-xs">확인</button>
+                    <button onClick={() => setMode("none")} className="px-4 py-1.5 bg-orange-100 text-orange-600 rounded-lg font-bold text-xs">확인</button>
                   </div>
                 </div>
               )}
 
               {mode === "none" && (
                 <div className="flex flex-col gap-3">
-                  <button onClick={() => fileRef.current?.click()} className="w-full py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm"><ImageIcon className="text-orange-500" size={20} /> 스캔해서 올리기</button>
+                  <button onClick={() => fileRef.current?.click()} className="w-full py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm shadow-sm active:bg-orange-50"><ImageIcon className="text-orange-500" size={20} /> 스캔해서 올리기</button>
                   <input ref={fileRef} type="file" hidden accept="image/*" onChange={(e) => {
                     const file = e.target.files?.[0]; if (!file) return;
                     const img = new Image(); const reader = new FileReader();
@@ -241,10 +250,10 @@ export default function MemoryBreadApp() {
                     reader.readAsDataURL(file);
                   }} />
                   <div className="grid grid-cols-2 gap-3">
-                    <button onClick={()=>setMode("typing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm"><Type size={18} className="text-orange-500" /> 직접 쓰기</button>
-                    <button onClick={()=>setMode("drawing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm"><Pencil size={18} className="text-orange-500" /> 그리기</button>
+                    <button onClick={()=>setMode("typing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm active:bg-orange-50"><Type size={18} className="text-orange-500" /> 직접 쓰기</button>
+                    <button onClick={()=>setMode("drawing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm active:bg-orange-50"><Pencil size={18} className="text-orange-500" /> 그리기</button>
                   </div>
-                  <button onClick={() => setIsFinished(true)} className="w-full py-4 bg-[#FF8A3D] text-white rounded-[24px] font-black text-lg shadow-[0_5px_0_#D97706] active:translate-y-1 active:shadow-none">완성! 암기하기 ✨</button>
+                  <button onClick={() => setIsFinished(true)} className="w-full py-4 bg-[#FF8A3D] text-white rounded-[24px] font-black text-lg shadow-[0_5px_0_#D97706] mt-1 active:translate-y-1 active:shadow-none">완성! 암기하기 ✨</button>
                 </div>
               )}
             </div>
@@ -252,7 +261,7 @@ export default function MemoryBreadApp() {
 
           {isFinished && bite < 4 && (
             <div className="w-full mt-8 flex flex-col gap-4">
-              <button onClick={handleEat} className="w-full py-6 bg-[#FF8A3D] text-white rounded-[30px] font-black text-2xl shadow-[0_8px_0_#D97706] active:translate-y-1 active:shadow-none">한 입 먹기 🍴</button>
+              <button onClick={handleEat} className="w-full py-6 bg-[#FF8A3D] text-white rounded-[36px] font-black text-2xl shadow-[0_8px_0_#D97706] active:translate-y-1 active:shadow-none transition-all">한 입 먹기 🍴</button>
               <button onClick={() => setIsFinished(false)} className="text-orange-400 font-bold underline text-sm text-center">수정하러 가기</button>
             </div>
           )}
