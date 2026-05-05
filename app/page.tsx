@@ -281,6 +281,14 @@ export default function MemoryBreadApp() {
         <footer className="h-20 bg-white border-t border-gray-50 flex items-center justify-around px-8 z-30 pb-2">
           <div className="flex flex-col items-center gap-1 text-orange-500 cursor-pointer"><Home size={24} /><span className="text-[10px] font-bold">홈</span></div>
           <div className="flex flex-col items-center gap-1 text-gray-300 cursor-pointer"><BookOpen size={24} /><span className="text-[10px] font-bold">노트</span></div>
+          {/* 기존 footer 내부의 노트 탭 버튼을 찾아서 onClick 추가 */}
+<div 
+  onClick={() => setShowNotes(true)} 
+  className="flex flex-col items-center gap-1 text-gray-300 cursor-pointer"
+>
+  <BookOpen size={24} />
+  <span className="text-[10px] font-bold">노트</span>
+</div>
           <div className="flex flex-col items-center gap-1 text-gray-300 cursor-pointer"><UserCircle size={24} /><span className="text-[10px] font-bold">내정보</span></div>
         </footer>
       </div>
@@ -293,4 +301,107 @@ export default function MemoryBreadApp() {
       `}</style>
     </div>
   );
+
+  // --- 295줄 밑에 여기서부터 복사해서 붙여넣으세요 ---
+
+  // [v2 추가 상태] 노트 리스트 및 화면 전환용
+  const [notes, setNotes] = useState<any[]>([]);
+  const [showNotes, setShowNotes] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<"normal" | "masking" | "quiz">("normal");
+
+  // [v2 추가 로직] 완성 버튼 클릭 시 호출 (기존 handleSave 대신 사용 가능)
+  const saveAndGoToNote = () => {
+    const breadCount = notes.length + 1;
+    const newNote = {
+      id: Date.now().toString(),
+      title: `제목없는암기빵${breadCount}`,
+      subject: "분류 중...",
+      image: image,
+      drawing: drawingCanvasRef.current?.toDataURL(),
+      text: inputText,
+      createdAt: Date.now(),
+      isAnalyzing: true,
+      maskingKeywords: ["광합성", "엽록체", "포도당", "에너지"] // 예시 키워드
+    };
+
+    setNotes(prev => [newNote, ...prev]);
+    setIsFinished(true); // 먹기 화면으로 이동
+    
+    // AI 분석 시뮬레이션 (백그라운드)
+    setTimeout(() => {
+      setNotes(prev => prev.map(n => n.id === newNote.id ? 
+        { ...n, title: n.text ? n.text.substring(0,8) : n.title, subject: "과학", isAnalyzing: false } : n
+      ));
+    }, 3000);
+  };
+
+  {/* [v2 UI] 내 빵 노트 전체 화면 */}
+  {showNotes && (
+    <div className="absolute inset-0 bg-[#FEFBF2] z-[100] flex flex-col">
+      <header className="px-6 py-4 flex justify-between items-center border-b border-orange-50 bg-white">
+        <button onClick={() => setShowNotes(false)} className="p-2 text-gray-400">✕</button>
+        <h2 className="text-lg font-bold">내 빵 노트</h2>
+        <div className="w-10"></div>
+      </header>
+      
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+        {notes.map((note) => (
+          <div 
+            key={note.id} 
+            onClick={() => { setSelectedNote(note); setViewMode("normal"); }}
+            className="bg-white p-4 rounded-[24px] shadow-sm border border-orange-50 flex items-center gap-4 active:scale-95 transition-transform"
+          >
+            <div className="w-16 h-16 bg-orange-50 rounded-xl overflow-hidden">
+              <img src={note.image || note.drawing || BREAD_IMG_URL} className="w-full h-full object-cover opacity-60" />
+            </div>
+            <div className="flex-1">
+               <span className="text-[10px] text-orange-400 font-bold">{note.subject}</span>
+               <h3 className="font-bold text-gray-700">{note.isAnalyzing ? "AI 분석 중..." : note.title}</h3>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => setShowNotes(false)} className="absolute bottom-24 right-6 w-14 h-14 bg-[#FFB347] text-white rounded-full shadow-lg text-3xl">+</button>
+    </div>
+  )}
+
+  {/* [v2 UI] 암기빵 상세 보기 (다시먹기/가리기/퀴즈 선택) */}
+  {selectedNote && (
+    <div className="absolute inset-0 bg-[#FEFBF2] z-[110] flex flex-col">
+      <header className="px-6 py-4 flex justify-between items-center bg-white border-b">
+        <button onClick={() => setSelectedNote(null)} className="p-2 text-gray-400">✕</button>
+        <h2 className="text-lg font-bold">{selectedNote.title}</h2>
+        <button className="text-orange-500 font-bold">저장</button>
+      </header>
+      
+      <div className="flex-1 flex flex-col items-center p-6">
+        <div className="relative w-full aspect-[4/5] mb-6">
+          <img src={BREAD_IMG_URL} className="absolute inset-0 w-full h-full object-contain" />
+          <div className="absolute inset-0 p-10 flex flex-col items-center justify-center text-center">
+            {/* 가리기 모드일 때 텍스트 처리 */}
+            {viewMode === "masking" ? (
+              <div className="text-sm leading-loose">
+                {selectedNote.text.split(" ").map((word: string, i: number) => (
+                  selectedNote.maskingKeywords.includes(word) ? 
+                  <span key={i} className="bg-orange-200 text-transparent rounded px-1 mx-0.5 cursor-pointer hover:text-[#5a3e1b]" onClick={(e) => e.currentTarget.classList.toggle('text-transparent')}> {word} </span> 
+                  : <span key={i}> {word} </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[#5a3e1b] font-bold">{selectedNote.text}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 w-full px-4">
+          <button onClick={() => setViewMode("normal")} className={`py-3 rounded-2xl font-bold text-sm ${viewMode === 'normal' ? 'bg-orange-500 text-white' : 'bg-white border'}`}>다시먹기</button>
+          <button onClick={() => setViewMode("masking")} className={`py-3 rounded-2xl font-bold text-sm ${viewMode === 'masking' ? 'bg-orange-500 text-white' : 'bg-white border'}`}>가리기모드</button>
+          <button onClick={() => alert('퀴즈 모드 준비 중!')} className="py-3 bg-white border rounded-2xl font-bold text-sm">퀴즈모드</button>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* --- 붙여넣기 끝 --- */}
 }
