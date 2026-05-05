@@ -30,6 +30,12 @@ export default function MemoryBreadApp() {
 
   const colorChips = ["#5a3e1b", "#000000", "#D9534F", "#F0AD4E", "#5CB85C", "#4A90E2"];
 
+  // --- [v2 추가 상태] ---
+  const [notes, setNotes] = useState<any[]>([]);
+  const [showNotes, setShowNotes] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<"normal" | "masking" | "quiz">("normal");
+
   // 초기 캔버스 설정
   useEffect(() => {
     [textCanvasRef, drawingCanvasRef].forEach(ref => {
@@ -96,7 +102,6 @@ export default function MemoryBreadApp() {
     };
   };
 
-  // Pointer Event 기반 좌표 계산 (마우스, 펜, 터치 통합)
   const getPos = (e: React.PointerEvent) => {
     const rect = drawingCanvasRef.current!.getBoundingClientRect();
     return { 
@@ -107,9 +112,7 @@ export default function MemoryBreadApp() {
 
   const startDraw = (e: React.PointerEvent) => {
     if (mode !== "drawing" || isFinished) return;
-    // 캔버스에 캡처를 걸어 손가락/펜이 캔버스 밖으로 나가도 드로잉이 유지되게 함
     (e.target as Element).setPointerCapture(e.pointerId);
-    
     saveHistory();
     drawingRef.current = true;
     pointsRef.current = [getPos(e)];
@@ -121,11 +124,9 @@ export default function MemoryBreadApp() {
     if (!ctx) return;
     const currentPos = getPos(e);
     pointsRef.current.push(currentPos);
-    
     ctx.lineWidth = tool === "eraser" ? 25 : brushSize;
     ctx.strokeStyle = drawingColor;
     ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
-    
     if (pointsRef.current.length > 2) {
       const pts = pointsRef.current;
       const i = pts.length - 2;
@@ -140,9 +141,7 @@ export default function MemoryBreadApp() {
   const stopDraw = (e: React.PointerEvent) => {
     drawingRef.current = false;
     pointsRef.current = [];
-    try {
-      (e.target as Element).releasePointerCapture(e.pointerId);
-    } catch (err) {}
+    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch (err) {}
   };
 
   const handleEat = () => {
@@ -163,46 +162,36 @@ export default function MemoryBreadApp() {
     "circle(0% at 50% 50%)"
   ];
 
-  // --- v2 기능을 위한 상태 관리 (원본 코드 보호를 위해 하단 추가) ---
-  const [notes, setNotes] = useState<any[]>([]);
-  const [showNotes, setShowNotes] = useState(false);
-  const [selectedNote, setSelectedNote] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<"normal" | "masking" | "quiz">("normal");
+  // --- [v2 저장 로직] ---
+  const onFinishBread = () => {
+    const breadCount = notes.length + 1;
+    const newNote = {
+      id: Date.now().toString(),
+      title: `제목없는암기빵${breadCount}`,
+      subject: "분류 중...",
+      image: image,
+      drawing: drawingCanvasRef.current?.toDataURL(),
+      text: inputText || "그림 암기빵",
+      createdAt: Date.now(),
+      isAnalyzing: true,
+      maskingKeywords: ["광합성", "엽록체", "포도당", "에너지"] 
+    };
+    setNotes(prev => [newNote, ...prev]);
+    setIsFinished(true);
 
-  // 암기빵 저장 로직 (원본 UI와 연결)
-  useEffect(() => {
-    if (isFinished && bite === 0 && (image || inputText || history.length > 0)) {
-        const breadCount = notes.length + 1;
-        const newNote = {
-          id: Date.now().toString(),
-          title: `제목없는암기빵${breadCount}`,
-          subject: "분류 중...",
-          image: image,
-          drawing: drawingCanvasRef.current?.toDataURL(),
-          text: inputText || "그림 암기빵",
-          createdAt: Date.now(),
-          isAnalyzing: true,
-          maskingKeywords: ["광합성", "엽록체", "포도당", "이산화탄소", "물"] // AI 분석 예시 키워드
-        };
-        setNotes(prev => {
-            if (prev.find(n => n.id === newNote.id)) return prev;
-            return [newNote, ...prev];
-        });
-        
-        // AI 백그라운드 분석 시뮬레이션
-        setTimeout(() => {
-          setNotes(prev => prev.map(n => n.id === newNote.id ? 
-            { ...n, title: n.text.length > 2 ? n.text.substring(0,8) : n.title, subject: "과학", isAnalyzing: false } : n
-          ));
-        }, 2500);
-    }
-  }, [isFinished]);
+    // AI 분석 시뮬레이션
+    setTimeout(() => {
+      setNotes(prev => prev.map(n => n.id === newNote.id ? 
+        { ...n, title: n.text.length > 2 ? n.text.substring(0,8) : n.title, subject: "과학", isAnalyzing: false } : n
+      ));
+    }, 2000);
+  };
 
   return (
     <div className="flex justify-center bg-gray-100 min-h-screen font-sans overflow-hidden text-[#5a3e1b]">
       <div className="w-full max-w-[430px] bg-[#FEFBF2] min-h-screen flex flex-col shadow-2xl relative">
         <header className="px-6 py-4 flex justify-between items-center z-30">
-          <div className="flex items-center gap-2"><span className="text-2xl">🍞</span><h1 className="text-xl font-black">암기빵</h1></div>
+          <div className="flex items-center gap-2" onClick={() => setShowNotes(false)}><span className="text-2xl">🍞</span><h1 className="text-xl font-black">암기빵</h1></div>
           <button onClick={handleFullReset} className="p-2 text-gray-400 hover:text-orange-500 transition-colors"><RefreshCcw size={22} /></button>
         </header>
 
@@ -224,11 +213,7 @@ export default function MemoryBreadApp() {
                   <canvas 
                     ref={drawingCanvasRef} 
                     className="absolute inset-0 w-full h-full z-20 touch-none pointer-events-auto" 
-                    onPointerDown={startDraw} 
-                    onPointerMove={draw} 
-                    onPointerUp={stopDraw} 
-                    onPointerLeave={stopDraw}
-                    onPointerCancel={stopDraw}
+                    onPointerDown={startDraw} onPointerMove={draw} onPointerUp={stopDraw} onPointerLeave={stopDraw} onPointerCancel={stopDraw}
                   />
                 </div>
               </div>
@@ -242,10 +227,7 @@ export default function MemoryBreadApp() {
                 <div className="bg-white p-4 rounded-[28px] shadow-xl border border-orange-50 flex flex-col gap-3">
                   <textarea value={inputText} onChange={(e)=>setInputText(e.target.value)} placeholder="암기 내용을 적어보세요..." className="w-full h-24 p-2 outline-none resize-none text-sm font-medium" autoFocus />
                   <div className="flex justify-between items-center border-t pt-3">
-                    <div className="flex gap-1.5">
-                      {colorChips.map(c => (
-                        <button key={c} onClick={() => {setTextColor(c); setIsTextPickerUsed(false);}} className={`w-6 h-6 rounded-full ${textColor === c && !isTextPickerUsed ? 'ring-2 ring-orange-400 scale-110' : ''}`} style={{background: c}} />
-                      ))}
+                    <div className="flex gap-1.5">{colorChips.map(c => (<button key={c} onClick={() => {setTextColor(c); setIsTextPickerUsed(false);}} className={`w-6 h-6 rounded-full ${textColor === c && !isTextPickerUsed ? 'ring-2 ring-orange-400 scale-110' : ''}`} style={{background: c}} />))}
                       <div className={`relative w-6 h-6 rounded-full border ${isTextPickerUsed ? 'ring-2 ring-orange-400' : ''}`} style={{background: isTextPickerUsed ? textColor : "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)"}}>
                         <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e)=>{setTextColor(e.target.value); setIsTextPickerUsed(true);}} />
                       </div>
@@ -254,7 +236,6 @@ export default function MemoryBreadApp() {
                   </div>
                 </div>
               )}
-
               {mode === "drawing" && (
                 <div className="bg-white p-4 rounded-[28px] shadow-xl border border-orange-50 flex flex-col gap-3">
                   <div className="flex items-center gap-2">
@@ -264,10 +245,7 @@ export default function MemoryBreadApp() {
                   </div>
                   <div className="px-1"><input type="range" min="1" max="25" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} className="w-full accent-orange-500 h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer" /></div>
                   <div className="flex justify-between items-center">
-                    <div className="flex gap-1.5">
-                      {colorChips.map(c => (
-                        <button key={c} onClick={() => {setDrawingColor(c); setIsDrawingPickerUsed(false);}} className={`w-6 h-6 rounded-full ${drawingColor === c && !isDrawingPickerUsed ? 'ring-2 ring-orange-300 scale-110' : ''}`} style={{background: c}} />
-                      ))}
+                    <div className="flex gap-1.5">{colorChips.map(c => (<button key={c} onClick={() => {setDrawingColor(c); setIsDrawingPickerUsed(false);}} className={`w-6 h-6 rounded-full ${drawingColor === c && !isDrawingPickerUsed ? 'ring-2 ring-orange-300 scale-110' : ''}`} style={{background: c}} />))}
                       <div className={`relative w-6 h-6 rounded-full border ${isDrawingPickerUsed ? 'ring-2 ring-orange-300' : ''}`} style={{background: isDrawingPickerUsed ? drawingColor : "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)"}}>
                         <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e)=>{setDrawingColor(e.target.value); setIsDrawingPickerUsed(true);}} />
                       </div>
@@ -276,7 +254,6 @@ export default function MemoryBreadApp() {
                   </div>
                 </div>
               )}
-
               {mode === "none" && (
                 <div className="flex flex-col gap-3">
                   <button onClick={() => fileRef.current?.click()} className="w-full py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm active:bg-orange-50 transition-colors"><ImageIcon className="text-orange-500" size={20} /> 스캔</button>
@@ -298,7 +275,8 @@ export default function MemoryBreadApp() {
                     <button onClick={()=>setMode("typing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm active:bg-orange-50"><Type size={18} className="text-orange-500" /> 직접 쓰기</button>
                     <button onClick={()=>setMode("drawing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm active:bg-orange-50"><Pencil size={18} className="text-orange-500" /> 그리기</button>
                   </div>
-                  <button onClick={() => setIsFinished(true)} className="w-full py-4 bg-[#FF8A3D] text-white rounded-[24px] font-black text-lg shadow-[0_5px_0_#D97706] active:translate-y-1 active:shadow-none transition-all">완성 ✨</button>
+                  {/* [수정부] 완성 버튼 클릭 시 저장 로직 호출 */}
+                  <button onClick={onFinishBread} className="w-full py-4 bg-[#FF8A3D] text-white rounded-[24px] font-black text-lg shadow-[0_5px_0_#D97706] active:translate-y-1 active:shadow-none transition-all">완성 ✨</button>
                 </div>
               )}
             </div>
@@ -313,12 +291,13 @@ export default function MemoryBreadApp() {
         </main>
 
         <footer className="h-20 bg-white border-t border-gray-50 flex items-center justify-around px-8 z-30 pb-2">
-          <div className="flex flex-col items-center gap-1 text-orange-500 cursor-pointer" onClick={()=>setShowNotes(false)}><Home size={24} /><span className="text-[10px] font-bold">홈</span></div>
-          <div className="flex flex-col items-center gap-1 text-gray-300 cursor-pointer" onClick={()=>setShowNotes(true)}><BookOpen size={24} /><span className="text-[10px] font-bold">노트</span></div>
+          <div className="flex flex-col items-center gap-1 text-orange-500 cursor-pointer" onClick={() => {setShowNotes(false); setSelectedNote(null);}}><Home size={24} /><span className="text-[10px] font-bold">홈</span></div>
+          {/* [수정부] 노트 탭 클릭 시 노트 화면 보여주기 */}
+          <div className="flex flex-col items-center gap-1 text-gray-300 cursor-pointer" onClick={() => setShowNotes(true)}><BookOpen size={24} /><span className="text-[10px] font-bold">노트</span></div>
           <div className="flex flex-col items-center gap-1 text-gray-300 cursor-pointer"><UserCircle size={24} /><span className="text-[10px] font-bold">내정보</span></div>
         </footer>
 
-        {/* v2 추가 UI 영역: 노트 리스트 */}
+        {/* [v2 추가 UI: 노트 리스트] */}
         {showNotes && (
           <div className="absolute inset-0 bg-[#FEFBF2] z-[100] flex flex-col animate-in fade-in duration-200">
             <header className="px-6 py-4 flex justify-between items-center border-b border-orange-50 bg-white">
@@ -327,16 +306,14 @@ export default function MemoryBreadApp() {
               <div className="w-10"></div>
             </header>
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-              {notes.length === 0 ? (
-                <p className="text-center py-20 text-gray-400">아직 저장된 암기빵이 없어요 🍞</p>
-              ) : (
+              {notes.length === 0 ? (<p className="text-center py-20 text-gray-400">저장된 암기빵이 없어요 🍞</p>) : (
                 notes.map(note => (
-                  <div key={note.id} onClick={() => {setSelectedNote(note); setViewMode("normal");}} className="bg-white p-4 rounded-[24px] shadow-sm border border-orange-50 flex items-center gap-4 active:scale-95 transition-transform cursor-pointer">
+                  <div key={note.id} onClick={() => {setSelectedNote(note); setViewMode("normal");}} className="bg-white p-4 rounded-[24px] shadow-sm border border-orange-50 flex items-center gap-4 active:scale-95 cursor-pointer transition-transform">
                     <div className="w-16 h-16 bg-orange-50 rounded-xl overflow-hidden flex items-center justify-center">
                       <img src={note.image || note.drawing || BREAD_IMG_URL} className="w-full h-full object-cover opacity-60" />
                     </div>
                     <div className="flex-1">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${note.subject === '과학' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>{note.isAnalyzing ? "AI 분석 중..." : note.subject}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${note.subject === '과학' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>{note.isAnalyzing ? "분석 중..." : note.subject}</span>
                       <h3 className="font-bold text-gray-700 truncate">{note.title}</h3>
                     </div>
                   </div>
@@ -347,7 +324,7 @@ export default function MemoryBreadApp() {
           </div>
         )}
 
-        {/* v2 추가 UI 영역: 상세 모달 (가리기 모드 포함) */}
+        {/* [v2 추가 UI: 상세 및 가리기 모드] */}
         {selectedNote && (
           <div className="absolute inset-0 bg-[#FEFBF2] z-[110] flex flex-col animate-in slide-in-from-bottom duration-300">
             <header className="px-6 py-4 flex justify-between items-center bg-white border-b">
@@ -356,34 +333,33 @@ export default function MemoryBreadApp() {
               <div className="w-10"></div>
             </header>
             <div className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
-               <div className="relative w-full aspect-[4/5] mb-8">
-                  <img src={BREAD_IMG_URL} className="absolute inset-0 w-full h-full object-contain" />
-                  <div className="absolute inset-0 p-10 flex flex-col items-center justify-center text-center overflow-y-auto">
-                    {viewMode === "masking" ? (
-                      <div className="text-sm leading-relaxed font-medium">
-                        {selectedNote.text.split(/(\s+)/).map((word: string, i: number) => (
-                          selectedNote.maskingKeywords.some((k: string) => word.includes(k)) ? 
-                          <span key={i} className="bg-orange-200 text-transparent rounded px-1 mx-0.5 cursor-pointer hover:bg-orange-100 active:bg-orange-300 transition-colors inline-block" onClick={(e) => e.currentTarget.classList.toggle('text-transparent')}> {word} </span> 
-                          : <span key={i}>{word}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-4">
-                        {selectedNote.image && <img src={selectedNote.image} className="max-h-32 object-contain opacity-80 mix-blend-multiply" />}
-                        <p className="text-[#5a3e1b] font-bold whitespace-pre-wrap">{selectedNote.text}</p>
-                      </div>
-                    )}
-                  </div>
-               </div>
-               <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
-                  <button onClick={() => setViewMode("normal")} className={`py-4 rounded-2xl font-bold text-xs transition-all ${viewMode === 'normal' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white border text-gray-400'}`}>다시먹기</button>
-                  <button onClick={() => setViewMode("masking")} className={`py-4 rounded-2xl font-bold text-xs transition-all ${viewMode === 'masking' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white border text-gray-400'}`}>가리기모드</button>
-                  <button onClick={() => alert('AI가 퀴즈를 생성하고 있습니다...')} className="py-4 bg-white border text-gray-400 rounded-2xl font-bold text-xs">퀴즈모드</button>
-               </div>
+              <div className="relative w-full aspect-[4/5] mb-8">
+                <img src={BREAD_IMG_URL} className="absolute inset-0 w-full h-full object-contain" />
+                <div className="absolute inset-0 p-10 flex flex-col items-center justify-center text-center overflow-y-auto">
+                  {viewMode === "masking" ? (
+                    <div className="text-sm leading-relaxed font-medium">
+                      {selectedNote.text.split(/(\s+)/).map((word: string, i: number) => (
+                        selectedNote.maskingKeywords.some((k: string) => word.includes(k)) ? 
+                        <span key={i} className="bg-orange-200 text-transparent rounded px-1 mx-0.5 cursor-pointer hover:bg-orange-100 transition-colors inline-block" onClick={(e) => e.currentTarget.classList.toggle('text-transparent')}> {word} </span> 
+                        : <span key={i}>{word}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-4">
+                      {selectedNote.image && <img src={selectedNote.image} className="max-h-32 object-contain mix-blend-multiply opacity-80" />}
+                      <p className="text-[#5a3e1b] font-bold whitespace-pre-wrap">{selectedNote.text}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 w-full max-w-sm">
+                <button onClick={() => setViewMode("normal")} className={`py-4 rounded-2xl font-bold text-xs ${viewMode === 'normal' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white border text-gray-400'}`}>다시먹기</button>
+                <button onClick={() => setViewMode("masking")} className={`py-4 rounded-2xl font-bold text-xs ${viewMode === 'masking' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white border text-gray-400'}`}>가리기모드</button>
+                <button onClick={() => alert('퀴즈 모드 개발 중!')} className="py-4 bg-white border text-gray-400 rounded-2xl font-bold text-xs">퀴즈모드</button>
+              </div>
             </div>
           </div>
         )}
-
       </div>
 
       <style jsx>{`
