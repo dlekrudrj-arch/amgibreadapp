@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Settings, User, Home, BookOpen, UserCircle, RotateCcw, Image as ImageIcon, Type, Pencil, Check } from "lucide-react";
+import { Settings, Home, BookOpen, UserCircle, RotateCcw, Image as ImageIcon, Type, Pencil, Check } from "lucide-react";
 
 const BREAD_IMG_URL = "https://i.postimg.cc/rybtvfNW/bread-pyeonjibham.png";
 
@@ -8,7 +8,7 @@ export default function MemoryBreadApp() {
   const [image, setImage] = useState<string | null>(null);
   const [bite, setBite] = useState(0);
   const [mode, setMode] = useState<"none" | "typing" | "drawing">("none");
-  const [tool, setTool] = useState<"pen" | "eraser" | null>(null);
+  const [tool, setTool] = useState<"pen" | "eraser" | null>("pen");
   const [color, setColor] = useState("#5a3e1b");
   const [brushSize, setBrushSize] = useState(6);
   const [shake, setShake] = useState(false);
@@ -26,21 +26,22 @@ export default function MemoryBreadApp() {
 
   const colorChips = ["#5a3e1b", "#000000", "#D9534F", "#F0AD4E", "#5CB85C", "#4A90E2"];
 
-  // 고해상도 캔버스 설정 (식빵 크기에 맞춰 조정)
+  // 초기 캔버스 설정 (한 번만 실행되도록 유지)
   useEffect(() => {
     [textCanvasRef, drawingCanvasRef].forEach(ref => {
       const canvas = ref.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return;
-      canvas.width = 800;
+      canvas.width = 800; // 고해상도
       canvas.height = 1000;
       ctx.scale(2, 2);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
     });
-  }, [mode]);
+  }, []);
 
+  // 텍스트 그리기
   useEffect(() => {
     const ctx = textCanvasRef.current?.getContext("2d");
     if (!ctx) return;
@@ -51,10 +52,10 @@ export default function MemoryBreadApp() {
     ctx.textAlign = "center";
     const words = inputText.split("");
     let line = "";
-    let y = 100;
+    let y = 120;
     for (let n = 0; n < words.length; n++) {
       let testLine = line + words[n];
-      if (ctx.measureText(testLine).width > 300) {
+      if (ctx.measureText(testLine).width > 240) {
         ctx.fillText(line, 200, y);
         line = words[n]; y += 32;
       } else { line = testLine; }
@@ -63,8 +64,8 @@ export default function MemoryBreadApp() {
   }, [inputText, color]);
 
   const handleReset = () => {
-    setBite(0); setImage(null); setMode("none"); setTool(null); setHistory([]); setInputText(""); setIsFinished(false);
-    setIsPickerUsed(false);
+    setBite(0); setImage(null); setMode("none"); setIsFinished(false);
+    setInputText(""); setIsPickerUsed(false); setHistory([]);
     [textCanvasRef, drawingCanvasRef].forEach(ref => {
       const ctx = ref.current?.getContext("2d");
       ctx?.clearRect(0, 0, 800, 1000);
@@ -84,6 +85,7 @@ export default function MemoryBreadApp() {
   const startDraw = (e: any) => {
     if (mode !== "drawing" || isFinished) return;
     drawingRef.current = true;
+    // 이전 상태 저장 (취소 기능용)
     if (drawingCanvasRef.current) setHistory(prev => [...prev, drawingCanvasRef.current!.toDataURL()]);
     pointsRef.current = [getPos(e)];
   };
@@ -97,6 +99,7 @@ export default function MemoryBreadApp() {
     ctx.lineWidth = brushSize;
     ctx.strokeStyle = color;
     ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
+    
     if (pointsRef.current.length > 2) {
       const pts = pointsRef.current;
       const i = pts.length - 2;
@@ -128,100 +131,110 @@ export default function MemoryBreadApp() {
   ];
 
   return (
-    <div className="flex justify-center bg-gray-100 min-h-screen font-sans overflow-hidden">
+    <div className="flex justify-center bg-gray-200 min-h-screen font-sans overflow-hidden">
       <div className="w-full max-w-[430px] bg-[#FEFBF2] min-h-screen flex flex-col shadow-2xl relative">
         
-        {/* 상단 헤더 (앱 스타일) */}
-        <header className="px-6 py-4 flex justify-between items-center bg-[#FEFBF2]">
+        {/* 상단 헤더 */}
+        <header className="px-6 py-4 flex justify-between items-center z-30">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">🍞</div>
-            <h1 className="text-xl font-bold text-[#5a3e1b]">암기빵</h1>
+            <span className="text-2xl">🍞</span>
+            <h1 className="text-xl font-black text-[#5a3e1b] tracking-tight">암기빵</h1>
           </div>
           <Settings className="text-gray-400 w-6 h-6" />
         </header>
 
-        {/* 메인 빵 영역 (크게 강조) */}
-        <main className="flex-1 px-6 flex flex-col items-center">
-          <div className={`relative w-full aspect-[4/5] mt-4 transition-all duration-500 ${shake ? "animate-shake" : ""}`}>
+        {/* 메인 빵 영역 */}
+        <main className="flex-1 px-6 flex flex-col items-center justify-start pt-4 relative">
+          <div className={`relative w-full aspect-[4/5] transition-all duration-500 ${shake ? "animate-shake" : ""}`}>
             
-            {/* 엔딩: 다시 굽기 버튼 */}
+            {/* 빵 다시굽기 버튼 (식빵 정중앙 위치) */}
             {bite === 4 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-50 animate-in fade-in zoom-in">
-                <button onClick={handleReset} className="py-4 px-12 bg-[#FF8A3D] text-white rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">
+              <div className="absolute inset-0 flex items-center justify-center z-50 animate-in fade-in zoom-in duration-500">
+                <button 
+                  onClick={handleReset} 
+                  className="py-5 px-12 bg-[#FF8A3D] text-white rounded-[24px] font-black text-xl shadow-[0_8px_0_#D97706] active:translate-y-1 active:shadow-none transition-all"
+                >
                   빵 다시 굽기 🍞
                 </button>
               </div>
             )}
 
-            {/* 메인 빵 컨테이너 */}
+            {/* 메인 빵 컨테이너 (그림자 및 넘침 방지) */}
             <div 
-              className={`w-full h-full relative transition-all ${bite === 4 ? "opacity-0 scale-90" : "opacity-100"}`}
+              className={`w-full h-full relative transition-all duration-500 ${bite === 4 ? "opacity-0 scale-75" : "opacity-100"}`}
               style={{ 
                 clipPath: biteClips[bite], 
-                transition: "clip-path 0.4s ease-in-out, opacity 0.3s",
-                filter: "drop-shadow(0 20px 30px rgba(90,62,27,0.15))"
+                filter: "drop-shadow(0 20px 40px rgba(90,62,27,0.2))"
               }}
             >
-              <img src={BREAD_IMG_URL} className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+              {/* 기본 식빵 이미지 */}
+              <img src={BREAD_IMG_URL} className="absolute inset-0 w-full h-full object-contain" alt="bread" />
               
-              <div className="relative w-full h-full pointer-events-none">
-                {image && <img src={image} className="absolute inset-0 w-full h-full object-contain mix-blend-multiply opacity-90" />}
-                <canvas ref={textCanvasRef} className="absolute inset-0 w-full h-full z-10" />
+              {/* 이미지/그림/글자 제한 영역 (식빵 안쪽으로만 보이게 설정) */}
+              <div className="absolute inset-0 overflow-hidden" style={{ padding: '12% 10% 10% 10%' }}>
+                <div className="relative w-full h-full">
+                  {/* 스캔 이미지 */}
+                  {image && <img src={image} className="absolute inset-0 w-full h-full object-contain mix-blend-multiply opacity-90" />}
+                  {/* 텍스트 캔버스 */}
+                  <canvas ref={textCanvasRef} className="absolute inset-0 w-full h-full z-10" />
+                  {/* 드로잉 캔버스 */}
+                  <canvas 
+                    ref={drawingCanvasRef} 
+                    className={`absolute inset-0 w-full h-full touch-none z-20 ${mode === 'drawing' ? 'cursor-crosshair' : 'cursor-default'}`} 
+                    onMouseDown={startDraw} onMouseMove={draw} onMouseUp={() => {drawingRef.current=false;}} 
+                    onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={() => {drawingRef.current=false;}} 
+                  />
+                </div>
               </div>
-              
-              <canvas 
-                ref={drawingCanvasRef} 
-                className={`absolute inset-0 w-full h-full touch-none z-20 ${mode === 'drawing' ? 'cursor-crosshair' : 'cursor-default'}`} 
-                onMouseDown={startDraw} onMouseMove={draw} onMouseUp={() => {drawingRef.current=false;}} 
-                onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={() => {drawingRef.current=false;}} 
-              />
             </div>
 
-            {/* 부스러기 */}
+            {/* 부스러기 애니메이션 */}
             {crumbs.map((c) => <div key={c.id} className="absolute bg-[#D97706] rounded-full animate-fall" style={{ width: c.size, height: c.size, left: c.x, top: "50%" }} />)}
           </div>
 
-          {/* 앱 레이아웃 버튼 그룹 */}
+          {/* 컨트롤 영역 */}
           {!isFinished && (
-            <div className="w-full mt-8 flex flex-col gap-4 animate-in slide-in-from-bottom-6">
+            <div className="w-full mt-10 flex flex-col gap-4 z-40">
               
-              {/* 직접 쓰기/그리기 모드 선택 시 나타나는 도구함 */}
+              {/* 그리기 도구함 */}
               {mode === "drawing" && (
-                <div className="bg-white p-4 rounded-3xl shadow-md border border-orange-100 flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setTool("pen")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "pen" ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-500"}`}>펜</button>
-                    <button onClick={() => setTool("eraser")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "eraser" ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-500"}`}>지우개</button>
+                <div className="bg-white p-5 rounded-[32px] shadow-xl border border-orange-100 flex flex-col gap-4 animate-in slide-in-from-bottom-4">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setTool("pen")} className={`flex-1 py-3 rounded-2xl font-bold ${tool === "pen" ? "bg-orange-500 text-white shadow-inner" : "bg-gray-100 text-gray-400"}`}>펜</button>
+                    <button onClick={() => setTool("eraser")} className={`flex-1 py-3 rounded-2xl font-bold ${tool === "eraser" ? "bg-orange-500 text-white shadow-inner" : "bg-gray-100 text-gray-400"}`}>지우개</button>
                     <button onClick={() => {
+                        if(history.length === 0) return;
                         const img = new Image(); img.src = history[history.length-1];
-                        img.onload = () => { drawingCanvasRef.current?.getContext("2d")?.drawImage(img,0,0,400,500); setHistory(h=>h.slice(0,-1)); }
-                    }} className="px-3 py-2 bg-gray-50 rounded-xl"><RotateCcw size={18}/></button>
+                        img.onload = () => { drawingCanvasRef.current?.getContext("2d")?.clearRect(0,0,800,1000); drawingCanvasRef.current?.getContext("2d")?.drawImage(img,0,0,400,500); setHistory(h=>h.slice(0,-1)); }
+                    }} className="p-3 bg-gray-50 rounded-2xl text-gray-400 active:bg-gray-200"><RotateCcw size={20}/></button>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center px-1">
                     <div className="flex gap-2">
                       {colorChips.map(c => (
-                        <button key={c} onClick={() => {setColor(c); setIsPickerUsed(false);}} className={`w-6 h-6 rounded-full ${color === c && !isPickerUsed ? 'ring-2 ring-orange-400' : ''}`} style={{background: c}} />
+                        <button key={c} onClick={() => {setColor(c); setIsPickerUsed(false);}} className={`w-7 h-7 rounded-full transition-transform ${color === c && !isPickerUsed ? 'scale-125 ring-2 ring-orange-300' : 'opacity-80'}`} style={{background: c}} />
                       ))}
-                      <div className={`relative w-6 h-6 rounded-full border ${isPickerUsed ? 'ring-2 ring-orange-400' : ''}`} style={{background: isPickerUsed ? color : "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)"}}>
-                        <input type="color" className="absolute inset-0 opacity-0" onChange={(e)=>{setColor(e.target.value); setIsPickerUsed(true);}} />
+                      <div className={`relative w-7 h-7 rounded-full border-2 ${isPickerUsed ? 'scale-125 ring-2 ring-orange-300' : ''}`} style={{background: isPickerUsed ? color : "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)"}}>
+                        <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e)=>{setColor(e.target.value); setIsPickerUsed(true);}} />
                       </div>
                     </div>
-                    <button onClick={() => setMode("none")} className="text-xs font-bold text-orange-500">닫기</button>
+                    <button onClick={() => setMode("none")} className="px-4 py-2 bg-orange-100 text-orange-600 rounded-xl font-bold text-sm">확인</button>
                   </div>
                 </div>
               )}
 
+              {/* 글쓰기 입력창 */}
               {mode === "typing" && (
-                <div className="bg-white p-4 rounded-3xl shadow-md border border-orange-100 flex items-center gap-2">
-                  <input type="text" value={inputText} onChange={(e)=>setInputText(e.target.value)} placeholder="내용을 입력하세요..." className="flex-1 bg-transparent outline-none" />
-                  <button onClick={()=>setMode("none")} className="p-2 bg-orange-500 text-white rounded-xl"><Check size={18}/></button>
+                <div className="bg-white p-4 rounded-[24px] shadow-lg border border-orange-100 flex items-center gap-3 animate-in slide-in-from-bottom-4">
+                  <input type="text" value={inputText} onChange={(e)=>setInputText(e.target.value)} placeholder="빵에 적을 내용..." className="flex-1 bg-transparent outline-none font-medium" autoFocus />
+                  <button onClick={()=>setMode("none")} className="p-3 bg-orange-500 text-white rounded-2xl shadow-md"><Check size={20}/></button>
                 </div>
               )}
 
-              {/* 메인 버튼 레이아웃 (이미지 기획안 참고) */}
+              {/* 기본 버튼 세트 (홈 화면) */}
               {mode === "none" && (
-                <div className="flex flex-col gap-3">
-                  <button onClick={() => fileRef.current?.click()} className="w-full py-4 bg-white border-2 border-orange-100 rounded-2xl flex items-center justify-center gap-3 font-bold text-gray-700 shadow-sm">
-                    <ImageIcon className="text-orange-500" /> 스캔
+                <div className="flex flex-col gap-4">
+                  <button onClick={() => fileRef.current?.click()} className="w-full py-5 bg-white border-2 border-orange-100 rounded-[24px] flex items-center justify-center gap-3 font-bold text-gray-700 shadow-sm active:bg-orange-50 transition-colors">
+                    <ImageIcon className="text-orange-500" size={24} /> 스캔해서 올리기
                   </button>
                   <input ref={fileRef} type="file" hidden accept="image/*" onChange={(e) => {
                     const file = e.target.files?.[0]; if (!file) return;
@@ -230,53 +243,53 @@ export default function MemoryBreadApp() {
                     img.onload = () => {
                       const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
                       if (!ctx) return; canvas.width = 400; canvas.height = 500;
-                      ctx.filter = "contrast(3) grayscale(1)";
+                      ctx.filter = "contrast(2.5) grayscale(1)";
                       ctx.drawImage(img, 0, 0, 400, 500);
                       const data = ctx.getImageData(0,0,400,500);
-                      for(let i=0; i<data.data.length; i+=4) { if(data.data[i]>130) data.data[i+3]=0; else {data.data[i]=74; data.data[i+1]=42; data.data[i+2]=15;}}
+                      for(let i=0; i<data.data.length; i+=4) { if(data.data[i]>140) data.data[i+3]=0; else {data.data[i]=74; data.data[i+1]=42; data.data[i+2]=15;}}
                       ctx.putImageData(data,0,0); setImage(canvas.toDataURL());
                     };
                     reader.readAsDataURL(file);
                   }} />
                   
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={()=>setMode("typing")} className="py-4 bg-white border-2 border-orange-100 rounded-2xl flex items-center justify-center gap-2 font-bold text-gray-700">
-                      <Type size={18} className="text-orange-500" /> 쓰기
+                  <div className="grid grid-cols-2 gap-4">
+                    <button onClick={()=>setMode("typing")} className="py-5 bg-white border-2 border-orange-100 rounded-[24px] flex items-center justify-center gap-2 font-bold text-gray-700 shadow-sm active:bg-orange-50">
+                      <Type size={20} className="text-orange-500" /> 직접 쓰기
                     </button>
-                    <button onClick={()=>setMode("drawing")} className="py-4 bg-white border-2 border-orange-100 rounded-2xl flex items-center justify-center gap-2 font-bold text-gray-700">
-                      <Pencil size={18} className="text-orange-500" /> 그리기
+                    <button onClick={()=>setMode("drawing")} className="py-5 bg-white border-2 border-orange-100 rounded-[24px] flex items-center justify-center gap-2 font-bold text-gray-700 shadow-sm active:bg-orange-50">
+                      <Pencil size={20} className="text-orange-500" /> 그리기
                     </button>
                   </div>
                   
-                  <button onClick={() => setIsFinished(true)} className="w-full py-5 bg-[#FF8A3D] text-white rounded-3xl font-black text-xl shadow-lg mt-2 active:scale-95 transition-all">
-                    완성
+                  <button onClick={() => setIsFinished(true)} className="w-full py-6 bg-[#FF8A3D] text-white rounded-[28px] font-black text-2xl shadow-[0_6px_0_#D97706] mt-2 active:translate-y-1 active:shadow-none transition-all">
+                    완성! 암기하기 ✨
                   </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* 먹기 모드 버튼 */}
+          {/* 완성 후 먹기 모드 */}
           {isFinished && bite < 4 && (
-            <div className="w-full mt-12 flex flex-col gap-4 animate-in slide-in-from-bottom-8">
-              <button onClick={handleEat} className="w-full py-6 bg-[#FF8A3D] text-white rounded-[32px] font-black text-2xl shadow-xl active:scale-95 transition-all">
+            <div className="w-full mt-10 flex flex-col gap-6 animate-in slide-in-from-bottom-8">
+              <button onClick={handleEat} className="w-full py-7 bg-[#FF8A3D] text-white rounded-[36px] font-black text-3xl shadow-[0_10px_0_#D97706] active:translate-y-1 active:shadow-none transition-all">
                 한 입 먹기 🍴
               </button>
-              <button onClick={() => setIsFinished(false)} className="text-orange-400 font-bold underline text-sm">다시 수정할래요</button>
+              <button onClick={() => setIsFinished(false)} className="text-orange-400 font-bold underline text-base text-center">수정하러 가기</button>
             </div>
           )}
         </main>
 
-        {/* 하단 네비게이션 바 (앱 스타일 고정) */}
-        <footer className="h-20 bg-white border-t flex items-center justify-around px-6">
-          <div className="flex flex-col items-center gap-1 text-orange-500">
-            <Home size={24} /> <span className="text-[10px] font-bold">홈</span>
+        {/* 하단 네비바 */}
+        <footer className="h-24 bg-white border-t border-gray-100 flex items-center justify-around px-8 z-30 pb-4">
+          <div className="flex flex-col items-center gap-1.5 text-orange-500">
+            <Home size={28} /> <span className="text-xs font-bold">홈</span>
           </div>
-          <div className="flex flex-col items-center gap-1 text-gray-300">
-            <BookOpen size={24} /> <span className="text-[10px] font-bold">노트</span>
+          <div className="flex flex-col items-center gap-1.5 text-gray-300">
+            <BookOpen size={28} /> <span className="text-xs font-bold">노트</span>
           </div>
-          <div className="flex flex-col items-center gap-1 text-gray-300">
-            <UserCircle size={24} /> <span className="text-[10px] font-bold">내정보</span>
+          <div className="flex flex-col items-center gap-1.5 text-gray-300">
+            <UserCircle size={28} /> <span className="text-xs font-bold">내정보</span>
           </div>
         </footer>
       </div>
@@ -284,7 +297,7 @@ export default function MemoryBreadApp() {
       <style jsx>{`
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
         .animate-shake { animation: shake 0.2s ease-in-out; }
-        @keyframes fall { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(200px) scale(0.5); opacity: 0; } }
+        @keyframes fall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(250px) rotate(45deg); opacity: 0; } }
         .animate-fall { animation: fall 0.7s forwards ease-in; }
       `}</style>
     </div>
