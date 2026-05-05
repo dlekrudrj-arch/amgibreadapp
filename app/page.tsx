@@ -79,6 +79,7 @@ export default function AmgiBreadV2() {
     if (!isDrawing || editMode !== "drawing") return;
     const ctx = canvasRef.current?.getContext("2d");
     const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
     const x = (e.clientX || e.touches?.[0].clientX) - rect.left;
     const y = (e.clientY || e.touches?.[0].clientY) - rect.top;
     ctx?.lineTo(x, y);
