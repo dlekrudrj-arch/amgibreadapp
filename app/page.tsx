@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Settings, Home, BookOpen, UserCircle, RotateCcw, Image as ImageIcon, Type, Pencil, Check, RefreshCcw } from "lucide-react";
 
-const BREAD_IMG_URL = "https://i.postimg.cc/YSr9QGQS/Qkd.png";
+// 요청하신 새로운 빵 이미지 URL
+const BREAD_IMG_URL = "https://i.postimg.cc/rmTBY3qQ/Qkd-(1).png";
 
 export default function MemoryBreadApp() {
   const [image, setImage] = useState<string | null>(null);
@@ -10,7 +11,6 @@ export default function MemoryBreadApp() {
   const [mode, setMode] = useState<"none" | "typing" | "drawing">("none");
   const [tool, setTool] = useState<"pen" | "eraser" | null>("pen");
   
-  // 색상 및 도구 상태
   const [textColor, setTextColor] = useState("#5a3e1b");
   const [drawingColor, setDrawingColor] = useState("#5a3e1b");
   const [brushSize, setBrushSize] = useState(6);
@@ -31,7 +31,6 @@ export default function MemoryBreadApp() {
 
   const colorChips = ["#5a3e1b", "#000000", "#D9534F", "#F0AD4E", "#5CB85C", "#4A90E2"];
 
-  // 캔버스 초기화
   useEffect(() => {
     [textCanvasRef, drawingCanvasRef].forEach(ref => {
       const canvas = ref.current;
@@ -46,7 +45,7 @@ export default function MemoryBreadApp() {
     });
   }, []);
 
-  // 초기화 함수
+  // 모든 데이터를 지우고 처음으로 돌아가는 초기화 함수
   const handleFullReset = () => {
     setImage(null);
     setBite(0);
@@ -58,26 +57,25 @@ export default function MemoryBreadApp() {
     const dCtx = drawingCanvasRef.current?.getContext("2d");
     tCtx?.clearRect(0, 0, 400, 500);
     dCtx?.clearRect(0, 0, 400, 500);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
-  // 텍스트 렌더링 (v1 로직 유지)
   useEffect(() => {
     const ctx = textCanvasRef.current?.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, 400, 500);
     if (!inputText) return;
-    ctx.font = "bold 24px sans-serif";
+    ctx.font = "bold 22px sans-serif";
     ctx.fillStyle = textColor;
     ctx.textAlign = "center";
     const paragraphs = inputText.split("\n");
-    let y = 120;
+    let y = 140; // 텍스트 시작 위치 조정
     paragraphs.forEach((para) => {
       ctx.fillText(para, 200, y);
-      y += 32;
+      y += 30;
     });
   }, [inputText, textColor]);
 
-  // 그리기 로직 (v1의 부드러운 곡선 보정 포함)
   const saveHistory = () => {
     if (drawingCanvasRef.current) setHistory(prev => [...prev, drawingCanvasRef.current!.toDataURL()]);
   };
@@ -139,7 +137,6 @@ export default function MemoryBreadApp() {
     }
   };
 
-  // v1의 polygon 클립패스 적용
   const biteClips = [
     "none", 
     "polygon(0% 100%, 100% 100%, 100% 30%, 85% 42%, 70% 35%, 55% 45%, 40% 35%, 0% 15%)", 
@@ -154,12 +151,14 @@ export default function MemoryBreadApp() {
         
         <header className="px-6 py-4 flex justify-between items-center z-30">
           <div className="flex items-center gap-2"><span className="text-2xl">🍞</span><h1 className="text-xl font-black">암기빵</h1></div>
-          <button onClick={handleFullReset} className="p-2 text-gray-400 hover:text-orange-500 transition-colors"><RefreshCcw size={22} /></button>
+          <button onClick={handleFullReset} className="p-2 text-gray-400 hover:text-orange-500 transition-colors" title="전체 초기화">
+            <RefreshCcw size={22} />
+          </button>
         </header>
 
         <main className="flex-1 px-4 flex flex-col items-center pt-2 relative">
-          {/* 빵 사이즈 키움 (w-full) */}
-          <div className={`relative w-[110%] aspect-[4/5] transition-all duration-500 ${shake ? "animate-shake" : ""}`}>
+          {/* 빵 사이즈를 100%로 미세하게 줄임 */}
+          <div className={`relative w-full aspect-[4/5] transition-all duration-500 ${shake ? "animate-shake" : ""}`}>
             
             {bite === 4 && (
               <div className="absolute inset-0 flex items-end justify-center z-50 pb-20">
@@ -172,24 +171,33 @@ export default function MemoryBreadApp() {
               style={{ clipPath: biteClips[bite] }}
             >
               <img src={BREAD_IMG_URL} className="absolute inset-0 w-full h-full object-contain" />
-              {/* 업로드 이미지 공간 축소 (padding 증가) */}
-              <div className="absolute inset-0 overflow-hidden" style={{ padding: '22% 18% 15% 18%' }}>
+              
+              {/* 캔버스는 빵 이미지 전체(padding 0)를 덮도록 설정 */}
+              <div className="absolute inset-0">
                 <div className="relative w-full h-full">
-                  {image && <img src={image} className="absolute inset-0 w-full h-full object-contain mix-blend-multiply opacity-80" />}
+                  {/* 업로드 이미지/텍스트 영역은 안쪽 패딩을 줄여서 키움 */}
+                  <div className="absolute inset-0 pointer-events-none" style={{ padding: '15% 10% 12% 10%' }}>
+                    {image && <img src={image} className="w-full h-full object-contain mix-blend-multiply opacity-85" />}
+                  </div>
                   <canvas ref={textCanvasRef} className="absolute inset-0 w-full h-full z-10 pointer-events-none" />
-                  <canvas ref={drawingCanvasRef} className="absolute inset-0 w-full h-full touch-none z-20" onMouseDown={startDraw} onMouseMove={draw} onMouseUp={() => {drawingRef.current=false;}} onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={() => {drawingRef.current=false;}} />
+                  {/* 그리기용 캔버스는 전체 영역 차지 */}
+                  <canvas 
+                    ref={drawingCanvasRef} 
+                    className="absolute inset-0 w-full h-full touch-none z-20" 
+                    onMouseDown={startDraw} onMouseMove={draw} onMouseUp={() => {drawingRef.current=false;}} 
+                    onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={() => {drawingRef.current=false;}} 
+                  />
                 </div>
               </div>
             </div>
             {crumbs.map((c) => <div key={c.id} className="absolute bg-[#D97706] rounded-full animate-fall" style={{ width: c.size, height: c.size, left: c.x, top: "40%" }} />)}
           </div>
 
-          {/* 컨트롤 영역 (v1 기능 유지) */}
           {!isFinished && (
             <div className="w-full mt-6 flex flex-col gap-3 z-40">
               {mode === "typing" && (
                 <div className="bg-white p-4 rounded-[28px] shadow-xl border border-orange-50 flex flex-col gap-3">
-                  <textarea value={inputText} onChange={(e)=>setInputText(e.target.value)} placeholder="암기 내용..." className="w-full h-24 p-2 outline-none resize-none text-sm" autoFocus />
+                  <textarea value={inputText} onChange={(e)=>setInputText(e.target.value)} placeholder="암기 내용을 적어보세요..." className="w-full h-24 p-2 outline-none resize-none text-sm font-medium" autoFocus />
                   <div className="flex justify-between items-center border-t pt-3">
                     <div className="flex gap-1.5">
                       {colorChips.map(c => (
@@ -199,7 +207,7 @@ export default function MemoryBreadApp() {
                         <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e)=>{setTextColor(e.target.value); setIsTextPickerUsed(true);}} />
                       </div>
                     </div>
-                    <button onClick={()=>setMode("none")} className="p-2 bg-orange-500 text-white rounded-xl"><Check size={18}/></button>
+                    <button onClick={()=>setMode("none")} className="p-2 bg-orange-500 text-white rounded-xl shadow-md active:scale-95"><Check size={18}/></button>
                   </div>
                 </div>
               )}
@@ -207,11 +215,11 @@ export default function MemoryBreadApp() {
               {mode === "drawing" && (
                 <div className="bg-white p-4 rounded-[28px] shadow-xl border border-orange-50 flex flex-col gap-3">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setTool("pen")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "pen" ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-400"}`}>펜</button>
-                    <button onClick={() => setTool("eraser")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "eraser" ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-400"}`}>지우개</button>
-                    <button onClick={handleUndo} className="p-2 bg-gray-50 rounded-xl text-gray-400"><RotateCcw size={18}/></button>
+                    <button onClick={() => setTool("pen")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "pen" ? "bg-orange-500 text-white shadow-inner" : "bg-gray-100 text-gray-400"}`}>펜</button>
+                    <button onClick={() => setTool("eraser")} className={`flex-1 py-2 rounded-xl font-bold text-sm ${tool === "eraser" ? "bg-orange-500 text-white shadow-inner" : "bg-gray-100 text-gray-400"}`}>지우개</button>
+                    <button onClick={handleUndo} className="p-2 bg-gray-50 rounded-xl text-gray-400 active:scale-90 transition-transform"><RotateCcw size={18}/></button>
                   </div>
-                  <input type="range" min="1" max="20" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} className="w-full accent-orange-500 h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer" />
+                  <div className="px-1"><input type="range" min="1" max="25" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} className="w-full accent-orange-500 h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer" /></div>
                   <div className="flex justify-between items-center">
                     <div className="flex gap-1.5">
                       {colorChips.map(c => (
@@ -221,14 +229,14 @@ export default function MemoryBreadApp() {
                         <input type="color" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e)=>{setDrawingColor(e.target.value); setIsDrawingPickerUsed(true);}} />
                       </div>
                     </div>
-                    <button onClick={() => setMode("none")} className="px-4 py-1.5 bg-orange-100 text-orange-600 rounded-lg font-bold text-xs">확인</button>
+                    <button onClick={() => setMode("none")} className="px-4 py-1.5 bg-orange-100 text-orange-600 rounded-lg font-bold text-xs active:bg-orange-200">확인</button>
                   </div>
                 </div>
               )}
 
               {mode === "none" && (
                 <div className="flex flex-col gap-3">
-                  <button onClick={() => fileRef.current?.click()} className="w-full py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm active:bg-orange-50"><ImageIcon className="text-orange-500" size={20} /> 스캔해서 올리기</button>
+                  <button onClick={() => fileRef.current?.click()} className="w-full py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm shadow-sm active:bg-orange-50 transition-colors"><ImageIcon className="text-orange-500" size={20} /> 스캔해서 올리기</button>
                   <input ref={fileRef} type="file" hidden accept="image/*" onChange={(e) => {
                     const file = e.target.files?.[0]; if (!file) return;
                     const img = new Image(); const reader = new FileReader();
@@ -236,18 +244,18 @@ export default function MemoryBreadApp() {
                     img.onload = () => {
                       const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
                       if (!ctx) return; canvas.width = 400; canvas.height = 500;
-                      ctx.filter = "contrast(2.5) grayscale(1)"; ctx.drawImage(img, 0, 0, 400, 500);
+                      ctx.filter = "contrast(2.4) grayscale(1)"; ctx.drawImage(img, 0, 0, 400, 500);
                       const data = ctx.getImageData(0,0,400,500);
-                      for(let i=0; i<data.data.length; i+=4) { if(data.data[i]>140) data.data[i+3]=0; else {data.data[i]=74; data.data[i+1]=42; data.data[i+2]=15;}}
+                      for(let i=0; i<data.data.length; i+=4) { if(data.data[i]>145) data.data[i+3]=0; else {data.data[i]=74; data.data[i+1]=42; data.data[i+2]=15;}}
                       ctx.putImageData(data,0,0); setImage(canvas.toDataURL());
                     };
                     reader.readAsDataURL(file);
                   }} />
                   <div className="grid grid-cols-2 gap-3">
-                    <button onClick={()=>setMode("typing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm"><Type size={18} className="text-orange-500" /> 직접 쓰기</button>
-                    <button onClick={()=>setMode("drawing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm"><Pencil size={18} className="text-orange-500" /> 그리기</button>
+                    <button onClick={()=>setMode("typing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm active:bg-orange-50 transition-colors"><Type size={18} className="text-orange-500" /> 직접 쓰기</button>
+                    <button onClick={()=>setMode("drawing")} className="py-4 bg-white border-2 border-orange-100 rounded-[20px] flex items-center justify-center gap-2 font-bold text-gray-600 text-sm active:bg-orange-50 transition-colors"><Pencil size={18} className="text-orange-500" /> 그리기</button>
                   </div>
-                  <button onClick={() => setIsFinished(true)} className="w-full py-4 bg-[#FF8A3D] text-white rounded-[24px] font-black text-lg shadow-[0_5px_0_#D97706] active:translate-y-1 active:shadow-none">완성! 암기하기 ✨</button>
+                  <button onClick={() => setIsFinished(true)} className="w-full py-4 bg-[#FF8A3D] text-white rounded-[24px] font-black text-lg shadow-[0_5px_0_#D97706] active:translate-y-1 active:shadow-none transition-all">완성! 암기하기 ✨</button>
                 </div>
               )}
             </div>
@@ -262,9 +270,9 @@ export default function MemoryBreadApp() {
         </main>
 
         <footer className="h-20 bg-white border-t border-gray-50 flex items-center justify-around px-8 z-30 pb-2">
-          <div className="flex flex-col items-center gap-1 text-orange-500"><Home size={24} /><span className="text-[10px] font-bold">홈</span></div>
-          <div className="flex flex-col items-center gap-1 text-gray-300"><BookOpen size={24} /><span className="text-[10px] font-bold">노트</span></div>
-          <div className="flex flex-col items-center gap-1 text-gray-300"><UserCircle size={24} /><span className="text-[10px] font-bold">내정보</span></div>
+          <div className="flex flex-col items-center gap-1 text-orange-500 cursor-pointer"><Home size={24} /><span className="text-[10px] font-bold">홈</span></div>
+          <div className="flex flex-col items-center gap-1 text-gray-300 cursor-pointer"><BookOpen size={24} /><span className="text-[10px] font-bold">노트</span></div>
+          <div className="flex flex-col items-center gap-1 text-gray-300 cursor-pointer"><UserCircle size={24} /><span className="text-[10px] font-bold">내정보</span></div>
         </footer>
       </div>
 
